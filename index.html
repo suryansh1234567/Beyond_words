@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASL Sign Language Helper</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    
+    <!-- Fingerpose -->
+    <script src="https://cdn.jsdelivr.net/npm/fingerpose@0.1.0/dist/fingerpose.min.js"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="logo">
+                <ion-icon name="hand-right-outline"></ion-icon>
+                <span>Beyond<span class="pro-badge">Words</span></span>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="index.html"><ion-icon name="videocam-outline"></ion-icon> Live Translation</a></li>
+                <li><a href="learn.html"><ion-icon name="game-controller-outline"></ion-icon> Learning Mode</a></li>
+            </ul>
+
+
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="greeting">
+                    <h1>Real-Time ASL Word Translator ⚡</h1>
+                    <p>Our AI recognizes selected custom gestures and converts them into text/speech.</p>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                <!-- AI Camera & Live Skeletal HUD -->
+                <div class="camera-card glass-panel">
+                    <div class="card-header">
+                        <div class="header-title-group">
+                            <h2>Live Skeletal Tracking HUD</h2>
+                            <span class="badge badge-subtle" id="hud-fps-badge">FPS: 30</span>
+                        </div>
+                        <div class="hud-controls">
+                            <label class="toggle-switch" title="Toggle Skeletal HUD Overlay">
+                                <input type="checkbox" id="toggle-hud" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span class="hud-label">Skeletal HUD</span>
+                        </div>
+                    </div>
+                    
+                    <div class="video-container">
+                        <video class="input_video" style="display:none;" autoplay playsinline></video>
+                        <canvas class="output_canvas" width="640" height="480"></canvas>
+                        
+                        <div class="overlay-text" id="gesture-output">
+                            Waiting for Hand...
+                        </div>
+                    </div>
+
+                    <!-- Sentence Builder Bar -->
+                    <div class="sentence-builder-card glass-panel-sm">
+                        <div class="sentence-header">
+                            <span><ion-icon name="chatbox-ellipses-outline"></ion-icon> Live Sentence Builder</span>
+                            <div class="sentence-actions">
+                                <button class="btn-icon" id="tts-speak-btn" title="Speak Sentence"><ion-icon name="volume-high-outline"></ion-icon> Speak</button>
+                                <button class="btn-icon" id="sentence-space-btn" title="Add Space"><ion-icon name="return-down-forward-outline"></ion-icon> Space</button>
+                                <button class="btn-icon" id="sentence-backspace-btn" title="Backspace"><ion-icon name="backspace-outline"></ion-icon></button>
+                                <button class="btn-icon danger" id="sentence-clear-btn" title="Clear All"><ion-icon name="trash-outline"></ion-icon></button>
+                            </div>
+                        </div>
+                        <div class="sentence-display" id="sentence-display-text">
+                            <span class="placeholder-text">Signed words will automatically append here...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Model Stats & Dictionary -->
+                <div class="side-column">
+                    <!-- Live Detection Panel -->
+                    <div class="translation-card glass-panel">
+                        <div class="card-header-compact">
+                            <h3>Detected Word</h3>
+                            <span class="badge" style="color: #3b82f6;">Custom KNN Engine</span>
+                        </div>
+                        
+                        <div class="detected-word-container">
+                            <span class="detected-word" id="detected-text">-</span>
+                            <span class="detected-subtext" id="detected-subtext">Hold gesture to lock</span>
+                        </div>
+
+                        <div class="confidence-section">
+                            <div class="stat-row">
+                                <span>Gesture Similarity</span>
+                                <span id="accuracy-text" class="confidence-pct">0%</span>
+                            </div>
+                            <div class="accuracy-bar" style="margin-bottom: 0.75rem;">
+                                <div class="accuracy-fill" id="accuracy-fill" style="width: 0%;"></div>
+                            </div>
+                            <div class="stat-row">
+                                <span style="color: var(--accent-cyan); font-weight: 700;">FaceMesh NMM Heuristic Detection</span>
+                                <span id="face-nmm-text" class="confidence-pct" style="color: var(--accent-cyan);">Neutral</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Two-Way Communication Card -->
+                    <div class="glass-panel" style="margin-bottom: 1.5rem;">
+                        <div class="card-header-compact">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <ion-icon name="mic" style="color: var(--secondary);"></ion-icon>
+                                <h3>Hearing User Response</h3>
+                            </div>
+                            <button id="mic-btn" class="btn-icon" style="background: rgba(236, 72, 153, 0.15); border-color: var(--secondary);">
+                                <ion-icon name="mic-outline"></ion-icon> Speak
+                            </button>
+                        </div>
+                        
+                        <div class="divider" style="margin: 0.75rem 0;"></div>
+                        
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Deaf Display Board:</p>
+                        <div class="sentence-display" id="deaf-display-board" style="min-height: 6rem; background: rgba(236, 72, 153, 0.05); border: 1px solid rgba(236, 72, 153, 0.3); color: var(--text-light); font-size: 1.25rem;">
+                            <span class="placeholder-text" style="font-size: 0.95rem;">Click "Speak" and talk into the microphone. Words will appear here...</span>
+                        </div>
+                    </div>
+
+                    <!-- ASL Dictionary Card -->
+                    <div class="glass-panel" style="margin-bottom: 1.5rem;">
+                        <div class="card-header-compact">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <ion-icon name="book" style="color: var(--secondary);"></ion-icon>
+                                <h3>Available ASL Dictionary</h3>
+                            </div>
+                        </div>
+                        <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; color: var(--text-light); line-height: 1.4; max-height: 250px; overflow-y: auto;">
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>HELLO:</strong> Hold your hand up, palm facing forward. Keep all 5 fingers completely straight and pointing upwards.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>PEACE:</strong> Make a 'V' shape. Keep your Index and Middle fingers straight up. Curl your Thumb, Ring, and Pinky into your palm.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>I LOVE YOU:</strong> Extend your Thumb, Index, and Pinky fingers straight out. Keep your Middle and Ring fingers curled down.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>YES:</strong> Make a standard, tight fist. Curl all four fingers down and wrap your Thumb across them.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>NO:</strong> Point your Thumb, Index, and Middle fingers straight forward like a beak. Keep your Ring and Pinky fingers tightly curled.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>OK:</strong> Curve your Thumb and Index finger so their tips touch. Keep your Middle, Ring, and Pinky fingers perfectly straight.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>CALL ME:</strong> Extend your Thumb and Pinky fingers straight out in opposite directions. Keep the other three fingers curled.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>ROCK ON:</strong> Extend your Index and Pinky fingers straight up. Curl your Middle and Ring fingers down, and wrap your Thumb over them.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>THUMBS UP:</strong> Make a fist, but extend your Thumb perfectly straight upwards. Keep all other fingers curled.</li>
+                            <li style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>THUMBS DOWN:</strong> Make a fist, but point your Thumb perfectly straight downwards. Keep all other fingers curled.</li>
+                            <li style="padding: 0.5rem;"><strong>WATER:</strong> Make a 'W' shape. Extend your Index, Middle, and Ring fingers straight up. Curl your Thumb and Pinky down.</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
